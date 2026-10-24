@@ -1,0 +1,8 @@
+# Datos: se regeneran y no se versionan
+entrada/
+procesado/
+errores/
+
+# Archivos de sistema de Windows
+Thumbs.db
+desktop.ini
