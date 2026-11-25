@@ -12,6 +12,11 @@ BEGIN
     DECLARE @carpeta  NVARCHAR(500) = N'C:\Proyectos\turia-pipeline-datos\entrada\erp\';
     DECLARE @id_carga INT;
     DECLARE @sql      NVARCHAR(MAX);
+    DECLARE @lineas_pie      INT;
+    DECLARE @importe_pie     DECIMAL(14,2);
+    DECLARE @lineas_archivo  INT;
+    DECLARE @importe_archivo DECIMAL(14,2);
+    DECLARE @msg             NVARCHAR(4000);
 
     IF EXISTS (SELECT 1 FROM raw.log_cargas WHERE nombre_archivo = @archivo AND estado = N'OK')
     BEGIN
@@ -55,6 +60,25 @@ BEGIN
                     CODEPAGE        = ''' + @codepage + N''');';
     PRINT @sql;
     EXEC sp_executesql @sql;
+
+        -- Control: el archivo tiene que cuadrar con su fila TOTAL
+    SELECT @lineas_pie  = CAST(linea AS INT),
+           @importe_pie = CAST(REPLACE(importe_neto, ',', '.') AS DECIMAL(14,2))
+    FROM #erp
+    WHERE num_pedido = 'TOTAL';                                  -- solo la fila TOTAL
+
+    SELECT @lineas_archivo  = COUNT(*),              -- cuántas líneas hay sin la TOTAL
+           @importe_archivo = SUM(CAST(REPLACE(importe_neto,',','.')AS DECIMAL (14,2)))                -- cuánto suman
+    FROM #erp
+    WHERE num_pedido <> 'TOTAL';                                  -- todas menos la TOTAL
+
+    IF @lineas_pie IS NULL OR @lineas_archivo <> @lineas_pie OR @importe_archivo <> @importe_pie
+    BEGIN
+        SET @msg = CONCAT(N'El archivo ', @archivo, N' no cuadra con su fila TOTAL. Líneas: ',
+                          @lineas_archivo, N' (pie: ', @lineas_pie, N'). Importe: ',
+                          @importe_archivo, N' (pie: ', @importe_pie, N').');
+        THROW 50001, @msg, 1;
+    END
 
     -- Paso 4: #erp → raw.erp_ventas
     INSERT INTO raw.erp_ventas (id_carga, nombre_archivo,
