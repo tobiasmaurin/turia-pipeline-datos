@@ -13,6 +13,12 @@ BEGIN
     DECLARE @id_carga INT;
     DECLARE @sql      NVARCHAR(MAX);
 
+    IF EXISTS (SELECT 1 FROM raw.log_cargas WHERE nombre_archivo = @archivo AND estado = N'OK')
+    BEGIN
+        PRINT N'El archivo ' + @archivo + N' ya esta cargado: no se hace nada';
+        RETURN;
+    END
+
     BEGIN TRANSACTION;
 
     -- Paso 1: abrir el registro
@@ -73,4 +79,4 @@ END;
 GO
 
 --EXEC raw.usp_cargar_erp @archivo = N'ERP_ventas_202412.csv', @codepage = N'1252'; YA CARGADO (CARGA 2)
-EXEC raw.usp_listar_cargas;
+--EXEC raw.usp_listar_cargas;
